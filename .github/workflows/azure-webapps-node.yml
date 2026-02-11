@@ -72,4 +72,4 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'webapp-nodejs-example' # Terraform Output
-          package: release.zip
+          package: app/release.zip

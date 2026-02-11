@@ -28,12 +28,12 @@ resource "random_id" "server" {
 }
 
 resource "azurerm_resource_group" "aks_rg" {
-  name     = "rg-volvo-nodeapp"
-  location = "Sweden Central" # Volvo context: closer to Gothenburg
+  name     = var.resource_group_name
+  location = var.location # Volvo context: closer to Gothenburg
 }
 
 resource "azurerm_container_registry" "acr" {
-  name                = "acrvonode${random_id.server.hex}" # Must be globally unique
+  name                = "${var.acr_name}${random_id.acr_suffix.hex}" # Must be globally unique
   resource_group_name = azurerm_resource_group.aks_rg.name
   location            = azurerm_resource_group.aks_rg.location
   sku                 = "Basic"
@@ -42,7 +42,7 @@ resource "azurerm_container_registry" "acr" {
 
 # 3. Azure Kubernetes Service (AKS)
 resource "azurerm_kubernetes_cluster" "aks" {
-  name                = "aks-volvo-cluster"
+  name                = var.aks_cluster_name
   location            = azurerm_resource_group.aks_rg.location
   resource_group_name = azurerm_resource_group.aks_rg.name
   dns_prefix          = "volvogroup"

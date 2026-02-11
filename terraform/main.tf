@@ -9,11 +9,11 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "prd-sea-ci-kubernetes-rg"
-    storage_account_name = "sealokiprod" # 必须是全局唯一的
+    storage_account_name = "sealokiprod" # global unique
     container_name       = "loki-container-test"
-    key                  = "prod.terraform.tfstate" # 状态文件在容器中的路径
+    key                  = "prod.terraform.tfstate" # remote state
 
-    # 推荐：使用 OIDC 认证，不建议在代码中写 access_key
+    # OIDC authentication
     use_oidc = true
   }
 }

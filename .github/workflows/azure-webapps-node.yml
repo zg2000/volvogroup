@@ -47,13 +47,13 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # Terraform setup
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      # - name: Setup Terraform
+      #   uses: hashicorp/setup-terraform@v3
 
-      - run: |
-          cd terraform
-          terraform init
-          terraform apply -auto-approve
+      #  - run: |
+      #    cd terraform
+      #    terraform init
+      #   terraform apply -auto-approve
 
       # 3. setup Node.js
       - name: Setup Node.js

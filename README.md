@@ -7,8 +7,8 @@ This app will show you "Hello World".
 # Terraform
 all HCL files located in /terraform
 
-#Dockerfile
+# Dockerfile
 Create Docker Image
 
-#Deployment
+# Deployment
 k8s service

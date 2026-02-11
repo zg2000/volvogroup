@@ -1,4 +1,22 @@
 # terraform/main.tf
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+
+  backend "azurerm" {
+    resource_group_name  = "prd-sea-ci-kubernetes-rg"
+    storage_account_name = "sealokiprod" # 必须是全局唯一的
+    container_name       = "loki-container-test"
+    key                  = "prod.terraform.tfstate" # 状态文件在容器中的路径
+
+    # 推荐：使用 OIDC 认证，不建议在代码中写 access_key
+    use_oidc = true
+  }
+}
 provider "azurerm" {
   features {}
   # OIDC authentication

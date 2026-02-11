@@ -46,30 +46,39 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Terraform setup
-      # - name: Setup Terraform
-      #   uses: hashicorp/setup-terraform@v3
-
-      #  - run: |
-      #    cd terraform
-      #    terraform init
-      #   terraform apply -auto-approve
-
-      # 3. setup Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          node-version: '20'
+          terraform_wrapper: false # disable wrapper get stdout
 
-      - run: |
-          cd app
-          npm install
-          npm run build --if-present
-          zip -r release.zip .
+      - name: Terraform Apply
+        id: tf_apply
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve -var-file=prod.tfvars
+          
+          # make output to environment variable
+          
+          echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_ENV
+          echo "ACR_NAME=$(terraform output -raw acr_name)" >> $GITHUB_ENV
+          echo "AKS_NAME=$(terraform output -raw aks_cluster_name)" >> $GITHUB_ENV
+          echo "RG_NAME=$(terraform output -raw resource_group_name)" >> $GITHUB_ENV
 
-      # 4. Deploy to Web App
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+      - name: Build Docker image and Push to ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+          docker build -t ${{ env.ACR_SERVER }}/nodeapp:${{ github.sha }} .
+          docker push ${{ env.ACR_SERVER }}/nodeapp:${{ github.sha }}
+
+      - name: Set AKS Context
+        uses: azure/aks-set-context@v3
         with:
-          app-name: 'webapp-nodejs-example' # Terraform Output
-          package: app/release.zip
+          resource-group: ${{ env.RG_NAME }}
+          cluster-name: ${{ env.AKS_NAME }}
+
+      - name: Deploy to K8s
+        run: |
+          sed -i "s|IMAGE_PLACEHOLDER|${{ env.ACR_SERVER }}/nodeapp:${{ github.sha }}|g" k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
+

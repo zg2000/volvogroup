@@ -23,13 +23,17 @@ provider "azurerm" {
   use_oidc = true
 }
 
+resource "random_id" "server" {
+  byte_length = 4
+}
+
 resource "azurerm_resource_group" "aks_rg" {
   name     = "rg-volvo-nodeapp"
   location = "Sweden Central" # Volvo context: closer to Gothenburg
 }
 
 resource "azurerm_container_registry" "acr" {
-  name                = "acrvonode${unique_id}" # Must be globally unique
+  name                = "acrvonode${random_id.server.hex}" # Must be globally unique
   resource_group_name = azurerm_resource_group.aks_rg.name
   location            = azurerm_resource_group.aks_rg.location
   sku                 = "Basic"

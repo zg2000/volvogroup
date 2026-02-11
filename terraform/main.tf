@@ -23,7 +23,7 @@ provider "azurerm" {
   use_oidc = true
 }
 
-resource "random_id" "server" {
+resource "random_id" "acr_suffix" {
   byte_length = 4
 }
 

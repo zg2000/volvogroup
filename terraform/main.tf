@@ -23,32 +23,45 @@ provider "azurerm" {
   use_oidc = true
 }
 
-resource "random_id" "server" {
-  byte_length = 4
+resource "azurerm_resource_group" "aks_rg" {
+  name     = "rg-volvo-nodeapp"
+  location = "Sweden Central" # Volvo context: closer to Gothenburg
 }
 
-resource "azurerm_resource_group" "testrg" {
-  name     = "rg-nodejs-app"
-  location = "East US"
+resource "azurerm_container_registry" "acr" {
+  name                = "acrvonode${unique_id}" # Must be globally unique
+  resource_group_name = azurerm_resource_group.aks_rg.name
+  location            = azurerm_resource_group.aks_rg.location
+  sku                 = "Basic"
+  admin_enabled       = false # Secure: Use Identity, not Admin passwords
 }
 
-resource "azurerm_service_plan" "testsp" {
-  name                = "plan-nodejs"
-  resource_group_name = azurerm_resource_group.testrg.name
-  location            = azurerm_resource_group.testrg.location
-  os_type             = "Linux"
-  sku_name            = "B1" # save cost
-}
+# 3. Azure Kubernetes Service (AKS)
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = "aks-volvo-cluster"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+  dns_prefix          = "volvogroup"
 
-resource "azurerm_linux_web_app" "testwa" {
-  name                = "webapp-nodejs-${random_id.server.hex}" # global unique
-  resource_group_name = azurerm_resource_group.testrg.name
-  location            = azurerm_service_plan.testsp.location
-  service_plan_id     = azurerm_service_plan.testsp.id
-
-  site_config {
-    application_stack {
-      node_version = "20-lts"
-    }
+  default_node_pool {
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_B2s" # Cost-effective for development
   }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  network_profile {
+    network_plugin = "kubenet"
+    load_balancer_sku = "standard"
+  }
+}
+
+resource "azurerm_role_assignment" "aks_to_acr" {
+  principal_id                     = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
+  role_definition_name             = "AcrPull"
+  scope                            = azurerm_container_registry.acr.id
+  skip_service_principal_aad_check = true
 }

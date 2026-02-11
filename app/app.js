@@ -6,7 +6,7 @@ const server = http.createServer((req, res) => {
   res.end('Hello World\nThis is Gong Zhang developed Node JS application!');
 });
 
-const port = 3000;
-server.listen(port, () => {
+const port = process.env.PORT || 3000;
+app.listen(port, '0.0.0.0', () => {
   console.log(`Web app service:  http://localhost:${port}/`);
 });

@@ -1,0 +1,72 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # 引用你在 ADO 中创建的 Service Connection 名称
+  serviceConnection: 'Azure-Workload-Identity-Conn'
+  resourceGroup: 'rg-aks-nodeapp'
+  aksName: 'aks-nodeapp'
+  imageName: 'nodeapp'
+
+stages:
+- stage: Infrastructure
+  displayName: 'Terraform Provision'
+  jobs:
+  - job: Terraform
+    steps:
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Init & Apply'
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+        environmentServiceNameAzureRM: '$(serviceConnection)'
+        commandOptions: '-auto-approve'
+
+- stage: BuildAndDeploy
+  displayName: 'Build and Push'
+  dependsOn: Infrastructure
+  jobs:
+  - job: Build
+    steps:
+    # 1. login Azure
+    - task: AzureCLI@2
+      displayName: 'Build and Push Docker Image'
+      inputs:
+        azureSubscription: '$(serviceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # Retrieve ACR Server
+          ACR_SERVER=$(terraform -chdir=terraform output -raw acr_login_server)
+          
+          # Build and Push image
+          az acr login --name $ACR_SERVER
+          docker build -t $ACR_SERVER/$(imageName):$(Build.BuildId) .
+          docker push $ACR_SERVER/$(imageName):$(Build.BuildId)
+          
+          # pass output to pipleline global variable acrServer
+          echo "##vso[task.setvariable variable=acrServer]$ACR_SERVER"
+
+    # 2. Deploy to AKS
+    - task: AzureCLI@2
+      displayName: 'Deploy to AKS'
+      inputs:
+        azureSubscription: '$(serviceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # retrieve AKS credential
+          az aks get-credentials --resource-group $(resourceGroup) --name $(aksName)
+          
+          # replace the placeholder and deploy service
+          sed -i "s|IMAGE_PLACEHOLDER|$(acrServer)/$(imageName):$(Build.BuildId)|g" k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
+
